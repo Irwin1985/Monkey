@@ -17,6 +17,7 @@ const ( // Listado de constantes que definen el orden de precedencia de los oper
 	PRODUCT     // *
 	PREFIX      // -x o !x
 	CALL        // myFunction(X)
+	INDEX       // indice para arrays.
 )
 
 type Parser struct {
@@ -56,6 +57,7 @@ var precedences = map[token.TokenType]int{
 	token.SLASH:    PRODUCT,
 	token.ASTERISK: PRODUCT,
 	token.LPAREN:   CALL,
+	token.LBRACKET: INDEX,
 }
 
 // registerPrefix es una función helper para registrar el tipo de token PREFIJO
@@ -118,6 +120,10 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
 	// Registramos el token STRING
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
+	// Registramos el token LBRACKET para los arrays.
+	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral)
+	// Registramos el token LBRACE para los hashes.
+	p.registerPrefix(token.LBRACE, p.parseHashLiteral)
 
 	// Procedemos a registrar las operaciones INFIJO o BINARIAS.
 	p.registerInfix(token.PLUS, p.parseInfixExpression)
@@ -130,10 +136,54 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.GT, p.parseInfixExpression)
 	// Registramos las llamadas a las funciones.
 	p.registerInfix(token.LPAREN, p.parseCallExpression)
+	// Registramos el operador índice para los arrays.
+	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
 	// leemos 2 tokens, uno para el actual y el otro para el siguiente.
 	p.nextToken()
 	p.nextToken()
 	return p
+}
+
+// Analiza un diccionario (hash)
+func (p *Parser) parseHashLiteral() ast.Expression {
+	hash := &ast.HashLiteral{Token: p.curToken}
+	hash.Pairs = make(map[ast.Expression]ast.Expression)
+
+	for !p.peekTokenIs(token.RBRACE) {
+		p.nextToken()
+		key := p.parseExpression(LOWEST)
+		if !p.expectPeek(token.COLON) {
+			return nil
+		}
+		p.nextToken()
+		value := p.parseExpression(LOWEST)
+		hash.Pairs[key] = value
+		if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
+			return nil
+		}
+	}
+	if !p.expectPeek(token.RBRACE) {
+		return nil
+	}
+	return hash
+}
+
+// Analiza el operador de índice
+func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
+	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
+	p.nextToken()
+	exp.Index = p.parseExpression(LOWEST)
+	if !p.expectPeek(token.RBRACKET) {
+		return nil
+	}
+	return exp
+}
+
+// Analiza un Array literal
+func (p *Parser) parseArrayLiteral() ast.Expression {
+	array := &ast.ArrayLiteral{Token: p.curToken}
+	array.Elements = p.parseExpressionList(token.RBRACKET)
+	return array
 }
 
 // Analiza un string literal.
@@ -144,28 +194,28 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 // Analiza las llamadas a las funciones.
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
-	exp.Arguments = p.parseCallArguments()
+	exp.Arguments = p.parseExpressionList(token.RPAREN)
 	return exp
 }
 
-// Alaliza los argumentos.
-func (p *Parser) parseCallArguments() []ast.Expression {
-	args := []ast.Expression{}
-	if p.peekTokenIs(token.RPAREN) {
+// Alaliza una lista de expresiones separadas por comas.
+func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
+	list := []ast.Expression{}
+	if p.peekTokenIs(end) {
 		p.nextToken()
-		return args
+		return list
 	}
 	p.nextToken()
-	args = append(args, p.parseExpression(LOWEST))
+	list = append(list, p.parseExpression(LOWEST))
 	for p.peekTokenIs(token.COMMA) {
 		p.nextToken()
 		p.nextToken()
-		args = append(args, p.parseExpression(LOWEST))
+		list = append(list, p.parseExpression(LOWEST))
 	}
-	if !p.expectPeek(token.RPAREN) {
+	if !p.expectPeek(end) {
 		return nil
 	}
-	return args
+	return list
 }
 
 // Función asociada al token.FUNCTION que se encarga de crear
