@@ -65,4 +65,7 @@ const (
 	IF       = "IF"
 	ELSE     = "ELSE"
 	RETURN   = "RETURN"
+	STRING   = "STRING"
+	LBRACKET = "["
+	RBRACKET = "]"
 )
