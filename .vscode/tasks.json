@@ -8,7 +8,7 @@
     "tasks": [
         {
             "label": "build",
-            "args": ["build", "-i", "-o", "C:/DESARROLLO/MyGarbage/.golang/src/monkey", "${file}"]
+            "args": ["build", "-i", "-o", "F:/Desarrollo/GitHub/GOPATH/src/Monkey", "${file}"]
         }
     ]
 }

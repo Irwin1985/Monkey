@@ -10,7 +10,7 @@
             "type": "go",
             "request": "launch",
             "mode": "exec",
-            "program": "C:/DESARROLLO/MyGarbage/.golang/src/monkey/main.exe",
+            "program": "F:/Desarrollo/GitHub/GOPATH/src/Monkey/main.exe",
             "env": {},
             "args": [],
             "showLog": true
